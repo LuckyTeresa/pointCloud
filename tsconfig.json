@@ -1,0 +1,74 @@
+/*{
+  "compilerOptions": {
+    "target": "ES6",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+
+    *//* Bundler mode *//*
+    "moduleResolution": "node16",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "types": ["three"],
+
+    *//* Linting *//*
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["src"]
+}*/
+
+{
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedParameters": false,
+    "noImplicitReturns": true,
+    "esModuleInterop": true,
+    "noUnusedLocals": true,
+    "noImplicitAny": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "declarationDir": "dist/types",
+    "declaration": true,
+    "target": "es2015",
+    "module": "es2015",
+    "strict": true,
+    "sourceMap": true,
+    "moduleResolution": "node",
+    "strictPropertyInitialization": false,
+    "strictNullChecks": false,
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "noEmit": false,
+    "baseUrl": "./",
+    "typeRoots": [
+      "node_modules/@types",
+      "./typings"
+    ],
+    "types": [
+      "node",
+      "jest"
+    ],
+    "lib": [
+      "esnext",
+      "ES2015.Iterable",
+      "dom",
+      "webworker"
+    ]
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
+

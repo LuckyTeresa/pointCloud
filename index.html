@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>three.js webgl - geometry - cube</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+</head>
+<body>
+<script id="vertexShader" type="x-shader/x-vertex">
+
+    precision mediump float;
+    precision mediump int;
+    #ifdef IsWEBGL2
+    #define attribute in
+    #define varying out
+    #define texture2D texture
+    #endif
+
+    uniform mat4 modelViewMatrix;
+    uniform mat4 projectionMatrix;
+    uniform float size;
+    uniform sampler2D map;
+
+    attribute vec3 position;
+    varying float isInside;
+
+    void main()    {
+        vec4 positionCamera = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * positionCamera;
+        gl_PointSize = size;
+        vec2 coods = vec2(gl_Position.xy / gl_Position.w);
+        isInside = texture2D(map, (coods.xy + 1.0) / 2.0).x;
+    }
+
+</script>
+
+<script id="fragmentShader" type="x-shader/x-fragment">
+    precision mediump float;
+    precision mediump int;
+
+    #ifdef IsWEBGL2
+    #define varying in
+    #define gl_FragColor gDiffuse
+    layout(location = 0) out vec4 gDiffuse;
+    #endif
+    varying float isInside;
+
+    void main()    {
+
+        if (isInside > 0.0){
+            gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
+        } else {
+            gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+        }
+    }
+
+</script>
+<button id="select">框选</button>
+<button id="clear">清除框选</button>
+<div class="container">
+    <canvas id="mainCanvas" width="800" height="800"></canvas>
+    <canvas id="overlayCanvas" width="800" height="800"></canvas>
+</div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
