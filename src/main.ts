@@ -17,6 +17,7 @@ let path = [];
 let material;
 // window.path = path;
 let canvasTexture;
+let modelMatrix;
 init();
 
 
@@ -48,6 +49,10 @@ function init() {
         uniforms: {
             size: {value: 0.005},
             map: {value: canvasTexture},
+            sModelWorldMatrix: {value: new THREE.Matrix4()},
+            sViewMatrix: {value: new THREE.Matrix4()},
+            sProjectionMatrix: {value: new THREE.Matrix4()},
+            useFlag: {value: false}
         },
         defines: {
             IsWEBGL2: true,
@@ -81,6 +86,7 @@ function loadPCDFiles(fileList) {
             if (loadedCount === fileList.length) {
                 centerGroup(group);
                 scene.add(group);
+                modelMatrix = points.matrixWorld.clone();
 
                 const axesHelper = new THREE.AxesHelper(200);
                 axesHelper.position.copy(group.position);
@@ -95,6 +101,7 @@ function loadPCDFiles(fileList) {
                 camera.position.copy(center.clone().add(new THREE.Vector3(size / 2, size / 2, size / 2)));
                 camera.lookAt(center);
                 controls.update();
+                console.log(scene);
             }
         }, undefined, undefined);
     });
@@ -194,6 +201,10 @@ function updateTexture() {
     }
     canvasTexture = new THREE.CanvasTexture(overlayCanvas);
     material.uniforms.map.value = canvasTexture;
+    material.uniforms.sModelWorldMatrix.value = modelMatrix;
+    material.uniforms.sViewMatrix.value = camera.matrixWorldInverse.clone();
+    material.uniforms.sProjectionMatrix.value = camera.projectionMatrix.clone();
+    material.uniforms.useFlag.value = true;
     material.needsUpdate = true;
 
 }

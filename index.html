@@ -22,15 +22,32 @@
     uniform float size;
     uniform sampler2D map;
 
+    uniform mat4 sModelWorldMatrix;
+    uniform mat4 sViewMatrix;
+    uniform mat4 sProjectionMatrix;
+    uniform bool useFlag;
+
     attribute vec3 position;
     varying float isInside;
 
-    void main()    {
+    void main() {
         vec4 positionCamera = modelViewMatrix * vec4(position, 1.0);
+        // 框选视角的点在当时的相机坐标系下的位置坐标
+        vec4 sPositionCamera = sViewMatrix * sModelWorldMatrix * vec4(position, 1.0);
         gl_Position = projectionMatrix * positionCamera;
+        // 框选视角的点最终的位置坐标
+        vec4 s_Position = sProjectionMatrix * sPositionCamera;
         gl_PointSize = size;
         vec2 coods = vec2(gl_Position.xy / gl_Position.w);
-        isInside = texture2D(map, (coods.xy + 1.0) / 2.0).x;
+        vec2 sCoods = vec2(s_Position.xy / s_Position.w);
+        // r如何确定有了框选之后就读sCoords的值而不是coods的值？
+        // todo:改为step函数形式
+        if (useFlag){
+            isInside = texture2D(map, (sCoods.xy + 1.0) / 2.0).x;
+        } else {
+            isInside = texture2D(map, (coods.xy + 1.0) / 2.0).x;
+
+        }
     }
 
 </script>
