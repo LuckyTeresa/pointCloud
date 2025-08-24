@@ -2,6 +2,7 @@ import './style.css'
 import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {PCDLoader2} from "./pcd-loader2";
+import {PointCloudTileset} from "./point-cloud/point-cloud-tileset";
 
 
 const selectBtn = document.getElementById('select');
@@ -15,16 +16,19 @@ let isSelectMode = false;
 let isDrawing = false;
 let path = [];
 let material;
-// window.path = path;
 let canvasTexture;
 let modelMatrix;
+let pointCloudTileset;
 init();
 
+selectBtn.addEventListener('click', startSelect);
+clearBtn.addEventListener('click', clearOverlay);
 
-function init() {
+
+async function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x333333);
-    // window.scene = scene;
+    window.scene = scene;
 
 
     camera = new THREE.PerspectiveCamera(60, mainCanvas.clientWidth / mainCanvas.clientHeight, 0.01, 1000);
@@ -44,27 +48,24 @@ function init() {
 
     canvasTexture = new THREE.CanvasTexture(overlayCanvas);
 
-    material = new THREE.RawShaderMaterial({
+    pointCloudTileset = new PointCloudTileset('test0');
+    pointCloudTileset.createMaterial(canvasTexture);
+    await pointCloudTileset.loadRootManifest();
+    pointCloudTileset.setCameraInfo({
+        camera,
+        width: mainCanvas.clientWidth,
+        height: mainCanvas.clientHeight,
+        pixelRatio: window.devicePixelRatio,
+        fov: camera.fov * Math.PI / 180,
+    })
 
-        uniforms: {
-            size: {value: 0.005},
-            map: {value: canvasTexture},
-            sModelWorldMatrix: {value: new THREE.Matrix4()},
-            sViewMatrix: {value: new THREE.Matrix4()},
-            sProjectionMatrix: {value: new THREE.Matrix4()},
-            useFlag: {value: false}
-        },
-        defines: {
-            IsWEBGL2: true,
-        },
-        glslVersion: THREE.GLSL3,
-        vertexShader: document.getElementById('vertexShader').textContent,
-        fragmentShader: document.getElementById('fragmentShader').textContent,
-        side: THREE.DoubleSide,
-        transparent: true,
-    });
-    console.log(material);
-    window.addEventListener("resize", onWindowResize);
+    scene.add(pointCloudTileset.renderGroup);
+
+    const axesHelper = new THREE.AxesHelper(200);
+    axesHelper.position.set(0, 0, 0);
+    scene.add(axesHelper);
+
+    // window.addEventListener("resize", onWindowResize);
     animate();
 }
 
@@ -107,11 +108,23 @@ function loadPCDFiles(fileList) {
     });
 }
 
-loadPCDFiles([
+/*loadPCDFiles([
     "public/0820/0000.pcd",
     // "models/pcd/0820/0001.pcd"
     // "models/pcd/0820/kitti_2000w.pcd"
-]);
+]);*/
+
+async function loadPointCloud() {
+    const pcdTileset = new PointCloudTileset('kitti');
+    await pcdTileset.loadRootManifest();
+    pcdTileset.setCameraInfo({
+        camera,
+        width: mainCanvas.clientWidth,
+        height: mainCanvas.clientHeight,
+        pixelRatio: window.devicePixelRatio,
+        fov: camera.fov * Math.PI / 180,
+    })
+}
 
 
 function startSelect() {
@@ -122,8 +135,7 @@ function startSelect() {
 
 }
 
-selectBtn.addEventListener('click', startSelect);
-clearBtn.addEventListener('click', clearOverlay);
+
 
 
 function centerGroup(group) {
@@ -135,6 +147,7 @@ function centerGroup(group) {
 function onMouseDown(e) {
     if (!isSelectMode) return;
     isDrawing = true;
+    console.log(e);
     path = [{x: e.offsetX, y: e.offsetY}];
     // drawPoint(e.offsetX, e.offsetY);
 }
@@ -185,35 +198,23 @@ function onMouseUp(e) {
     overlayCtx.fill(region);
 
     overlayCanvas.style.pointerEvents = "none";
-    updateTexture();
+    updateTexture(true);
     overlayCanvas.style.display = 'none';
 }
 
 function clearOverlay() {
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     overlayCanvas.style.display = 'block';
-    updateTexture();
+    updateTexture(false);
 }
 
-function updateTexture() {
+function updateTexture(useFlag: boolean) {
     if (canvasTexture) {
         canvasTexture.dispose();
     }
     canvasTexture = new THREE.CanvasTexture(overlayCanvas);
-    material.uniforms.map.value = canvasTexture;
-    material.uniforms.sModelWorldMatrix.value = modelMatrix;
-    material.uniforms.sViewMatrix.value = camera.matrixWorldInverse.clone();
-    material.uniforms.sProjectionMatrix.value = camera.projectionMatrix.clone();
-    material.uniforms.useFlag.value = true;
-    material.needsUpdate = true;
+    pointCloudTileset.updateMaterial(canvasTexture, useFlag);
 
-}
-
-function drawPoint(x, y) {
-    overlayCtx.fillStyle = "red";
-    overlayCtx.beginPath();
-    overlayCtx.arc(x, y, 2, 0, Math.PI * 2);
-    overlayCtx.fill();
 }
 
 function onWindowResize() {
@@ -227,5 +228,6 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
+    pointCloudTileset.update();
     renderer.render(scene, camera);
 }
