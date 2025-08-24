@@ -8,6 +8,7 @@ import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 const selectBtn = document.getElementById('select');
 const clearBtn = document.getElementById('clear');
+const testGetBtn = document.getElementById('testGet');
 const mainCanvas = document.getElementById('mainCanvas') as HTMLCanvasElement;
 const overlayCanvas = document.getElementById('overlayCanvas') as HTMLCanvasElement;
 const overlayCtx = overlayCanvas.getContext("2d");
@@ -27,11 +28,13 @@ init();
 selectBtn.addEventListener('click', startSelect);
 clearBtn.addEventListener('click', clearOverlay);
 
+// testGetBtn.addEventListener('click', test);
+
 
 async function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x333333);
-    window.scene = scene;
+    // window.scene = scene;
 
 
     camera = new THREE.PerspectiveCamera(60, mainCanvas.clientWidth / mainCanvas.clientHeight, 0.01, 1000);
@@ -150,7 +153,6 @@ function startSelect() {
     controls.enabled = false;
     isSelectMode = true;
     overlayCanvas.style.pointerEvents = "auto"; // 允许接收鼠标
-    console.log("进入套索模式");
 
 }
 
@@ -166,7 +168,6 @@ function centerGroup(group) {
 function onMouseDown(e) {
     if (!isSelectMode) return;
     isDrawing = true;
-    console.log(e);
     path = [{x: e.offsetX, y: e.offsetY}];
     // drawPoint(e.offsetX, e.offsetY);
 }
@@ -237,6 +238,7 @@ function updateTexture(useFlag: boolean) {
     }
 
 }
+
 
 function onWindowResize() {
     camera.aspect = mainCanvas.clientWidth / mainCanvas.clientHeight;
