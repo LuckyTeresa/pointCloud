@@ -7,11 +7,13 @@ import {TileFeatureTable} from "./tile-feature-table";
 
 const FPS_30 = 30;
 const FPS_60 = 60;
+const MaxScreenSpaceError = 20;
 
 export class PointCloudTileset {
-    private _modelUrn: string;
+    private readonly _modelUrn: string;
     private _dataLoader: DataLoader;
-    private _info: any;
+    private _info: any;// 根节点manifest
+    private _basePointLocationOffset: THREE.Vector3;
     private _rootList: PointCloudTile[];
     private _allTiles: PointCloudTile[];
     private _selectedTiles: PointCloudTile[];
@@ -19,13 +21,8 @@ export class PointCloudTileset {
     private _cameraInfo: ICameraInfo;
     private _isInitialized: boolean;
     private _frameNumber: number;
-    private _maximumScreenSpaceError: number;
     private _loadWaitFrameCounter: number;
     private _pntsMaterial: THREE.RawShaderMaterial;
-    private _lastSelectedTiles: PointCloudTile[];
-    private _boundingVolumeCenter: THREE.Vector3;
-    private _boundingLimtHigh: THREE.Vector3;
-    private _boundingLimtLow: THREE.Vector3;
     private _box3: THREE.Box3;
     public renderGroup: THREE.Group;
 
@@ -38,7 +35,6 @@ export class PointCloudTileset {
         this.renderGroup.rotateX(-Math.PI / 2);
         this._isInitialized = false;
         this._frameNumber = 0;
-        this._maximumScreenSpaceError = 20;
         this._loadWaitFrameCounter = 0;
         this._lastSelectedTiles = [];
 
@@ -46,13 +42,12 @@ export class PointCloudTileset {
 
     private _setHeaderInfo(): void {
         const header = this._info.root;
-        // const baseOffset = this._info.extensions.extensionsUsed.basePoint.location;
-
+        const baseOffset = this._info.extensions.extensionsUsed.basePoint.location;
         // todo:根据偏移数据将模型整体移到原点处
-        // this._basePointLocationOffset = new THREE.Vector3(baseOffset[0],baseOffset[1],baseOffset[2]);
+        this._basePointLocationOffset = new THREE.Vector3(baseOffset[0], baseOffset[1], baseOffset[2]);
 
         if (header.boundingVolume && header.boundingVolume.box) {
-            this._boundingVolumeCenter = new THREE.Vector3(
+            const boxCenter = new THREE.Vector3(
                 header.boundingVolume.box[0],
                 header.boundingVolume.box[1],
                 header.boundingVolume.box[2]
@@ -67,10 +62,10 @@ export class PointCloudTileset {
             const dir = halfAxes.clone().normalize();
             const distance = halfAxes.length();
 
-            this._boundingLimtHigh = this._boundingVolumeCenter.clone().add(dir.clone().multiplyScalar(distance));
-            this._boundingLimtLow = this._boundingVolumeCenter.clone().add(dir.clone().multiplyScalar(-distance));
+            const max = boxCenter.clone().add(dir.clone().multiplyScalar(distance));
+            const min = boxCenter.clone().add(dir.clone().multiplyScalar(-distance));
 
-            this._box3 = new THREE.Box3(this._boundingLimtLow.clone(), this._boundingLimtHigh.clone());
+            this._box3 = new THREE.Box3(min.clone(), max.clone());
 
         } else {
             console.warn('根节点tile无包围盒信息');
@@ -126,6 +121,7 @@ export class PointCloudTileset {
                         for (let k = 0; k < children2.length; k++) {
                             const childHeader2 = children2[k];
                             if (childHeader2) {
+                                childHeader2.basePointLocationOffset = this._basePointLocationOffset;
                                 const childTile = new PointCloudTile();
                                 childTile.setHeader(childHeader2);
 
@@ -149,9 +145,11 @@ export class PointCloudTileset {
     public setCameraInfo(info: ICameraInfo) {
         this._cameraInfo = info;
         // 根据rootManifest中的包围盒等信息调整相机视角
-        if (this._boundingLimtHigh) {
-            this._cameraInfo.camera.position.copy(this._boundingLimtHigh);
-            this._cameraInfo.camera.lookAt(this._boundingVolumeCenter);
+        if (this._box3) {
+            const center = new THREE.Vector3();
+            this._box3.getCenter(center);
+            this._cameraInfo.camera.position.copy(this._box3.max);
+            this._cameraInfo.camera.lookAt(center);
         }
     }
 
@@ -251,7 +249,7 @@ export class PointCloudTileset {
 
             for (const tile of this.renderGroup.children) {
                 let ptTile = tile as PointCloudTile;
-                if (!ptTile.isRootTile() && !ptTile.contentAvailable() && !ptTile._removedFrame) {
+                if (!ptTile.isRootTile() && !ptTile.contentAvailable() && !ptTile.removedFrame) {
                     //renderGroup可能会出现的元素，根节点、已请求未加载完毕的、即将移除的
                     return; //存在未加载完毕的不释放
                 }
@@ -259,7 +257,7 @@ export class PointCloudTileset {
             //可以开始释放了
             for (const tile of this.renderGroup.children) {
                 let ptTile = tile as PointCloudTile;
-                if (ptTile._removedFrame !== null && ptTile._removedFrame + FPS_60 < this._frameNumber) {
+                if (ptTile.removedFrame !== null && ptTile.removedFrame + FPS_60 < this._frameNumber) {
                     if (ptTile.isRootTile()) {
                         ptTile.hide();
                     } else {
@@ -366,26 +364,26 @@ export class PointCloudTileset {
 
     //选中可见的tile
     private _selectTile(tile: PointCloudTile) {
-        if (tile._selectedFrame !== null) {
+        if (tile.selectedFrame !== null) {
             //选中过
-            if (!tile._requestedFrame) {
+            if (!tile.requestedFrame) {
                 //选中但没有请求时间，说明延迟选中了，需要再次添加到列表
                 this._selectedTiles.push(tile);
-            } else if (this._frameNumber > tile._requestedFrame) {
+            } else if (this._frameNumber > tile.requestedFrame) {
                 //请求帧已经过去了，说明已经渲染出来了，可以安全移除其他节点
                 this._removeTileParentChildren(tile);
             }
         } else {
             //未选中过
-            tile._selectedFrame = this._frameNumber;
+            tile.selectedFrame = this._frameNumber;
             this._selectedTiles.push(tile);
         }
-        tile._removedFrame = null; //标记不移除该瓦片
+        tile.removedFrame = null; //标记不移除该瓦片
     }
 
     private _needsTraverse(tile: PointCloudTile): boolean {
         // tile的sse比设置的Max sse大时需要更新
-        return tile.screenSpaceError > this._maximumScreenSpaceError;
+        return tile.screenSpaceError > MaxScreenSpaceError;
     }
 
     private _isVisible(tile: PointCloudTile): boolean {
@@ -397,8 +395,8 @@ export class PointCloudTileset {
     }
 
     private _removeTile(tile: PointCloudTile) {
-        if (tile._removedFrame === null) {
-            tile._removedFrame = this._frameNumber;
+        if (tile.removedFrame === null) {
+            tile.removedFrame = this._frameNumber;
         }
     }
 
@@ -483,7 +481,7 @@ export class PointCloudTileset {
         material.needsUpdate = true;
     }
 
-    private async unzipJsonData(data: ArrayBuffer, rootUriMap: Map<string, PointCloudTile>): Promise<void> {
+    /*private async unzipJsonData(data: ArrayBuffer, rootUriMap: Map<string, PointCloudTile>): Promise<void> {
         const zip = new JSZip();
         let count = 0;
 
@@ -499,6 +497,7 @@ export class PointCloudTileset {
                             .then((content) => {
                                 const root = rootUriMap.get(key);
                                 const rootHeader = JSON.parse(content).root;
+                                rootHeader.basePointLocationOffset = this._basePointLocationOffset;
                                 root.setHeader(rootHeader);
                                 count++;
                                 if (count === rootUriMap.size) {
@@ -509,6 +508,49 @@ export class PointCloudTileset {
                 }
             });
         });
+    }*/
+
+    private async unzipJsonData(data: ArrayBuffer, rootUriMap: Map<string, PointCloudTile>): Promise<void> {
+        const zip = new JSZip();
+        let count = 0;
+
+        try {
+            const res = await zip.loadAsync(data, {optimizedBinaryString: true});
+            if (Object.values(res.files).length === 0) {
+                throw new Error('no data!');
+            }
+
+            const promises = Object.keys(res.files).map(async (key) => {
+                if (!res.files[key].dir) {
+                    try {
+                        const content = await res.file(res.files[key].name).async('string');
+                        const root = rootUriMap.get(key);
+                        if (root) {
+                            const rootHeader = JSON.parse(content).root;
+                            rootHeader.basePointLocationOffset = this._basePointLocationOffset;
+                            root.setHeader(rootHeader);
+                            count++;
+                            if (count === rootUriMap.size) {
+                                return true;
+                            }
+                        }
+                    } catch (error) {
+                        console.error(`Error processing file: ${key}`, error);
+                    }
+                }
+            });
+
+            await Promise.all(promises);
+
+            if (count === rootUriMap.size) {
+                return;
+            } else {
+                throw new Error('Not all files were processed');
+            }
+        } catch (error) {
+            console.error('Error unzipping or processing JSON data:', error);
+            throw error;
+        }
     }
 
     private _isChildrenDefined(value: any): boolean {

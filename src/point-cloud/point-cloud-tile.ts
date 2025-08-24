@@ -9,17 +9,14 @@ export enum TileState {
 }
 
 const _matrix = new THREE.Matrix4();
+const _v1 = new THREE.Vector3();
 
 export class PointCloudTile extends THREE.Points {
     public header: any;
     public tileState: TileState;
     public transform: THREE.Matrix4;
-    public _requestedFrame: number;
-    public _selectedFrame: number;
-    public _removedFrame: number;
     private _box3: THREE.Box3;
     private _removeLater: boolean;
-    private _boundingVolumeCenter: THREE.Vector3;
     public uri: string;
     public parentTile: PointCloudTile;
     public childrenTiles: PointCloudTile[];
@@ -28,8 +25,6 @@ export class PointCloudTile extends THREE.Points {
     public screenSpaceError: number;
     public distanceToCamera: number;
     public inRequestVolume: boolean;
-    private _boundingLimtHigh: THREE.Vector3;
-    private _boundingLimtLow: THREE.Vector3;
 
     public requestedFrame: number;
     public selectedFrame: number;
@@ -60,21 +55,24 @@ export class PointCloudTile extends THREE.Points {
             }
         }
 
-        this._getBoundingInfo();
-        this._box3 = new THREE.Box3();
-        const boxArr = this.header.boundingVolume.box;
+        if (this.header.boundingVolume && this.header.boundingVolume.box) {
+            const box = this.header.boundingVolume.box;
+            const center = new THREE.Vector3(box[0], box[1], box[2]);
+            this._box3 = new THREE.Box3();
 
-        this._box3.max = new THREE.Vector3(
-            this._boundingVolumeCenter.x + boxArr[3],
-            this._boundingVolumeCenter.y + boxArr[7],
-            this._boundingVolumeCenter.z + boxArr[11]
-        );
-        this._box3.min = new THREE.Vector3(
-            this._boundingVolumeCenter.x - boxArr[3],
-            this._boundingVolumeCenter.y - boxArr[7],
-            this._boundingVolumeCenter.z - boxArr[11]
-        );
-        this._box3.applyMatrix4(this.transform);
+            this._box3.max = new THREE.Vector3(
+                center.x + box[3],
+                center.y + box[7],
+                center.z + box[11]
+            );
+            this._box3.min = new THREE.Vector3(
+                center.x - box[3],
+                center.y - box[7],
+                center.z - box[11]
+            );
+            this._box3.applyMatrix4(this.transform);
+        }
+
     }
 
     public setParent(tile: PointCloudTile): void {
@@ -140,11 +138,11 @@ export class PointCloudTile extends THREE.Points {
         }
         this.removeFromParent();
         this.geometry.dispose();
-        (this.material as THREE.MeshBasicMaterial).map.dispose();
+        (this.material as THREE.MeshBasicMaterial).map?.dispose();
         (this.material as THREE.MeshBasicMaterial).dispose();
 
         this.geometry = null;
-        // this.geometry = new THREE.BufferGeometry();
+        this.geometry = new THREE.BufferGeometry();
         // this.material = new THREE.ShaderMaterial();
         this.tileState = TileState.UNLOADED;
     }
@@ -152,21 +150,6 @@ export class PointCloudTile extends THREE.Points {
     public show() {
         this.tileState = TileState.READY;
         this.visible = true;
-    }
-
-    private _getBoundingInfo(): void {
-        if (this.header.boundingVolume && this.header.boundingVolume.box) {
-            const box = this.header.boundingVolume;
-            this._boundingVolumeCenter = new THREE.Vector3(box[0], box[1], box[2]);
-            const halfAxes = new THREE.Vector3(box[3], box[7], box[11]);
-
-            const dir = halfAxes.clone().normalize();
-            const distance = halfAxes.length();
-            this._boundingLimtHigh = this._boundingVolumeCenter.clone().add(dir.clone().multiplyScalar(distance));
-            this._boundingLimtLow = this._boundingVolumeCenter.clone().add(dir.clone().multiplyScalar(-distance));
-        } else {
-            console.warn('tile 无包围盒信息');
-        }
     }
 
     private _boxInRequestVolume(cInfo: ICameraInfo): boolean {
@@ -203,7 +186,8 @@ export class PointCloudTile extends THREE.Points {
     }
 
     private _distanceToTile(cInfo: ICameraInfo): number {
-        const dis = this._boundingVolumeCenter.clone().sub(cInfo.camera.position).length();
+        this._box3.getCenter(_v1);
+        const dis = _v1.clone().sub(cInfo.camera.position).length();
         return dis;
     }
 
