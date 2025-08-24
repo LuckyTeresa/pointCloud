@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {PCDLoader2} from "./pcd-loader2";
 import {PointCloudTileset} from "./point-cloud/point-cloud-tileset";
+import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 
 const selectBtn = document.getElementById('select');
@@ -19,6 +20,8 @@ let material;
 let canvasTexture;
 let modelMatrix;
 let pointCloudTileset;
+let pcTilesetArr = [];
+let stats;
 init();
 
 selectBtn.addEventListener('click', startSelect);
@@ -48,22 +51,38 @@ async function init() {
 
     canvasTexture = new THREE.CanvasTexture(overlayCanvas);
 
-    pointCloudTileset = new PointCloudTileset('test0');
-    pointCloudTileset.createMaterial(canvasTexture);
-    await pointCloudTileset.loadRootManifest();
-    pointCloudTileset.setCameraInfo({
-        camera,
-        width: mainCanvas.clientWidth,
-        height: mainCanvas.clientHeight,
-        pixelRatio: window.devicePixelRatio,
-        fov: camera.fov * Math.PI / 180,
-    })
+    const offsetArr = [
+        new THREE.Vector3(150, 0, 0),
+        new THREE.Vector3(0, 0, 60),
+        new THREE.Vector3(-150, 0, 0),
+        new THREE.Vector3(0, 0, -60),
+        new THREE.Vector3(0, 0, 0),
+    ];
 
-    scene.add(pointCloudTileset.renderGroup);
+    for (const offset of offsetArr) {
+        pointCloudTileset = new PointCloudTileset('kitti', offset);
+        pcTilesetArr.push(pointCloudTileset);
+        pointCloudTileset.createMaterial(canvasTexture);
+        await pointCloudTileset.loadRootManifest();
+        pointCloudTileset.setCameraInfo({
+            camera,
+            width: mainCanvas.clientWidth,
+            height: mainCanvas.clientHeight,
+            pixelRatio: window.devicePixelRatio,
+            fov: camera.fov * Math.PI / 180,
+        })
+
+        scene.add(pointCloudTileset.renderGroup);
+    }
+
 
     const axesHelper = new THREE.AxesHelper(200);
     axesHelper.position.set(0, 0, 0);
     scene.add(axesHelper);
+
+    stats = new Stats();
+    document.getElementById('wrapper').appendChild(stats.dom);
+    stats.dom.style.top = '30px';
 
     // window.addEventListener("resize", onWindowResize);
     animate();
@@ -115,7 +134,7 @@ function loadPCDFiles(fileList) {
 ]);*/
 
 async function loadPointCloud() {
-    const pcdTileset = new PointCloudTileset('kitti');
+    const pcdTileset = new PointCloudTileset('kitti', new THREE.Vector3());
     await pcdTileset.loadRootManifest();
     pcdTileset.setCameraInfo({
         camera,
@@ -213,7 +232,9 @@ function updateTexture(useFlag: boolean) {
         canvasTexture.dispose();
     }
     canvasTexture = new THREE.CanvasTexture(overlayCanvas);
-    pointCloudTileset.updateMaterial(canvasTexture, useFlag);
+    for (const tileset of pcTilesetArr) {
+        tileset.updateMaterial(canvasTexture, useFlag);
+    }
 
 }
 
@@ -228,6 +249,9 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
-    pointCloudTileset.update();
+    for (const tileset of pcTilesetArr) {
+        tileset.update();
+    }
     renderer.render(scene, camera);
+    stats.update();
 }

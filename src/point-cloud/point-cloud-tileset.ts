@@ -26,13 +26,14 @@ export class PointCloudTileset {
     private _box3: THREE.Box3;
     public renderGroup: THREE.Group;
 
-    constructor(modelUrn: string) {
+    constructor(modelUrn: string, offset: THREE.Vector3) {
         this._modelUrn = modelUrn;
         this._dataLoader = new DataLoader(modelUrn);
         this._rootList = [];
         this._allTiles = [];
         this.renderGroup = new THREE.Group();
         this.renderGroup.rotateX(-Math.PI / 2);
+        this.renderGroup.applyMatrix4(new THREE.Matrix4().makeTranslation(offset.x, offset.y, offset.z));
         this._isInitialized = false;
         this._frameNumber = 0;
         this._loadWaitFrameCounter = 0;
@@ -103,8 +104,10 @@ export class PointCloudTileset {
             }
 
             const uris = [...tileUriMap.keys()];
-            const data = await this._dataLoader.loadAllManifestData(this._modelUrn, uris)
+            const data = await this._dataLoader.loadAllManifestData(this._modelUrn, uris);
+            console.time('unzip');
             await this.unzipJsonData(data, tileUriMap);
+            console.timeEnd('unzip');
             for (const root of this._rootList) {
                 {
                     //根节点瓦片始终缓存不再释放，通过可见性控制是否显示，根节点最先加载出来，不管可不可见
