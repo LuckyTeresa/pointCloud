@@ -49,7 +49,7 @@ export class TaskHandler {
                 },
                 responseType: 'arraybuffer'
             }).then(res => {
-                resolve({data: res.data, transfer: res.data});
+                resolve({data: res.data, transfer: [res.data]});
             }).catch((error: AxiosError) => {
                 reject(error);
             });
@@ -61,10 +61,40 @@ export class TaskHandler {
         return new Promise((resolve, reject) => {
             // @ts-ignore
             Axios.get(url, {responseType: 'arraybuffer'}).then(res => {
-                resolve({data: res.data, transfer: res.data});
+                const parseResult = this._parseResult(res.data);
+                resolve({data: parseResult, transfer: [parseResult.featureBuffer]});
             }).catch((error: AxiosError) => {
                 reject(error);
             });
         })
+    }
+
+    private _parseResult(buffer: ArrayBuffer) {
+        const dataView = new DataView(buffer);
+        const featureTableJSONByteLength = dataView.getUint32(12, true);
+        const featureTableBinaryByteLength = dataView.getUint32(16, true);
+        const batchTableJSONByteLength = dataView.getUint32(20, true);
+        const batchTableBinaryByteLength = dataView.getUint32(24, true);
+        const featureTableStart = 28;
+        const featureTableBuffer = buffer.slice(
+            featureTableStart,
+            featureTableStart + featureTableJSONByteLength + featureTableBinaryByteLength
+        );
+
+        // Batch Table
+        const batchTableStart = featureTableStart + featureTableJSONByteLength + featureTableBinaryByteLength;
+        const batchTableBuffer = buffer.slice(
+            batchTableStart,
+            batchTableStart + batchTableJSONByteLength + batchTableBinaryByteLength
+        );
+
+        return {
+            batchBuffer: batchTableBuffer,
+            batchTableJSONByteLength: batchTableJSONByteLength,
+            batchTableBinaryByteLength: batchTableBinaryByteLength,
+            featureBuffer: featureTableBuffer,
+            featureTableJSONByteLength: featureTableJSONByteLength,
+            featureTableBinaryByteLength: featureTableBinaryByteLength,
+        };
     }
 }

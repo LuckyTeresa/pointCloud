@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {ICameraInfo} from "./point-cloud-types";
+import {zUp2yUp} from "../utils";
 
 export enum TileState {
     UNLOADED,
@@ -56,20 +57,24 @@ export class PointCloudTile extends THREE.Points {
         }
 
         if (this.header.boundingVolume && this.header.boundingVolume.box) {
-            const box = this.header.boundingVolume.box;
-            const center = new THREE.Vector3(box[0], box[1], box[2]);
-            this._box3 = new THREE.Box3();
+            const boxCenter = zUp2yUp(new THREE.Vector3(
+                header.boundingVolume.box[0],
+                header.boundingVolume.box[1],
+                header.boundingVolume.box[2]
+            ));
 
-            this._box3.max = new THREE.Vector3(
-                center.x + box[3],
-                center.y + box[7],
-                center.z + box[11]
+            const halfAxes = new THREE.Vector3(
+                header.boundingVolume.box[3],
+                header.boundingVolume.box[11],
+                header.boundingVolume.box[7],
             );
-            this._box3.min = new THREE.Vector3(
-                center.x - box[3],
-                center.y - box[7],
-                center.z - box[11]
-            );
+
+            const dir = halfAxes.clone().normalize();
+            const distance = halfAxes.length();
+
+            const max = boxCenter.clone().add(dir.clone().multiplyScalar(distance));
+            const min = boxCenter.clone().add(dir.clone().multiplyScalar(-distance));
+            this._box3 = new THREE.Box3(min.clone(), max.clone());
             this._box3.applyMatrix4(this.transform);
         }
 

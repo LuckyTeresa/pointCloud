@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 import {ICameraInfo} from "./point-cloud-types";
 import * as THREE from 'three';
 import {TileFeatureTable} from "./tile-feature-table";
+import {zUp2yUp} from "../utils";
 
 const FPS_30 = 30;
 const FPS_60 = 60;
@@ -48,16 +49,17 @@ export class PointCloudTileset {
         this._basePointLocationOffset = new THREE.Vector3(baseOffset[0], baseOffset[1], baseOffset[2]);
 
         if (header.boundingVolume && header.boundingVolume.box) {
-            const boxCenter = new THREE.Vector3(
+            const boxCenter = zUp2yUp(new THREE.Vector3(
                 header.boundingVolume.box[0],
                 header.boundingVolume.box[1],
                 header.boundingVolume.box[2]
-            );
+            ));
 
+            // yz轴值互换
             const halfAxes = new THREE.Vector3(
                 header.boundingVolume.box[3],
+                header.boundingVolume.box[11],
                 header.boundingVolume.box[7],
-                header.boundingVolume.box[11]
             );
 
             const dir = halfAxes.clone().normalize();
@@ -118,7 +120,7 @@ export class PointCloudTileset {
                 stack.push(root);
 
                 while (stack.length > 0) {
-                    const tile = stack.pop();
+                    const tile = stack.pop();//root
                     const children2 = tile.header.children;
                     if (this._isChildrenDefined(children2)) {
                         for (let k = 0; k < children2.length; k++) {
@@ -159,12 +161,8 @@ export class PointCloudTileset {
     private async requestContent(tile: PointCloudTile): Promise<void> {
         if (tile.tileState === TileState.UNLOADED) {
             tile.tileState = TileState.LOADING;
-            const result = await this._loadPntsTile(tile) as ArrayBuffer;
-
-            const parseData = this._parseResult(result);
-
+            const parseData = await this._loadPntsTile(tile) as any;
             let matrix;
-            // todo: 替换为tileMap
             for (let i = 0; i < this._allTiles.length; i++) {
                 if (this._allTiles[i].uri === tile.uri) {
                     matrix = this._allTiles[i].transform;
@@ -194,6 +192,7 @@ export class PointCloudTileset {
 
             const newPosList = [];
             // const newColorList = [];
+            // todo:实际不需要
             for (let i = 0; i < posList.length; i += 3) {
 
                 const x = posList[i] * scale[0] / 65535.0 + offset[0];
@@ -560,32 +559,5 @@ export class PointCloudTileset {
         return value !== undefined && value !== null;
     }
 
-    private _parseResult(buffer: ArrayBuffer) {
-        const dataView = new DataView(buffer);
-        const featureTableJSONByteLength = dataView.getUint32(12, true);
-        const featureTableBinaryByteLength = dataView.getUint32(16, true);
-        const batchTableJSONByteLength = dataView.getUint32(20, true);
-        const batchTableBinaryByteLength = dataView.getUint32(24, true);
-        const featureTableStart = 28;
-        const featureTableBuffer = buffer.slice(
-            featureTableStart,
-            featureTableStart + featureTableJSONByteLength + featureTableBinaryByteLength
-        );
 
-        // Batch Table
-        const batchTableStart = featureTableStart + featureTableJSONByteLength + featureTableBinaryByteLength;
-        const batchTableBuffer = buffer.slice(
-            batchTableStart,
-            batchTableStart + batchTableJSONByteLength + batchTableBinaryByteLength
-        );
-
-        return {
-            batchBuffer: batchTableBuffer,
-            batchTableJSONByteLength: batchTableJSONByteLength,
-            batchTableBinaryByteLength: batchTableBinaryByteLength,
-            featureBuffer: featureTableBuffer,
-            featureTableJSONByteLength: featureTableJSONByteLength,
-            featureTableBinaryByteLength: featureTableBinaryByteLength,
-        };
-    }
 }
