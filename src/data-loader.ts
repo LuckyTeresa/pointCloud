@@ -106,7 +106,7 @@ export class DataLoader {
             };
             workerPool.addTask({
                 taskType: TaskType.LoadTile,
-                data: {url},
+                data: {url, uri},
             }, onLoad);
         });
 

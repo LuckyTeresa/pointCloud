@@ -33,7 +33,7 @@ export class WorkerPool {
 
 
     public addTask(task: any, callback: (result: any) => void): void {
-        const taskId = this.generateTaskId();
+        const taskId = this.generateTaskId(task.data.url);
         const taskData = {
             id: taskId,
             taskType: task.taskType,
@@ -96,8 +96,7 @@ export class WorkerPool {
         this.workers.forEach(worker => worker.terminate());
     }
 
-    private generateTaskId(): string {
-        // return 'task-' + Math.random().toString(36).substr(2, 9);
-        return 'task-' + new Date().getTime() + '';
+    private generateTaskId(url: string): string {
+        return 'task-' + new Date().getTime() + url;
     }
 }

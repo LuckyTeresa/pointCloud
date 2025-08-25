@@ -263,7 +263,6 @@ export class PointCloudTileset {
                     if (ptTile.isRootTile()) {
                         ptTile.hide();
                     } else {
-                        //this.updateSize(-tile.disposeMesh());
                         ptTile.disposeData();
                     }
                 }

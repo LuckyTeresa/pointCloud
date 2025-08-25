@@ -37,7 +37,7 @@ async function init() {
     // window.scene = scene;
 
 
-    camera = new THREE.PerspectiveCamera(60, mainCanvas.clientWidth / mainCanvas.clientHeight, 0.01, 1000);
+    camera = new THREE.PerspectiveCamera(45, mainCanvas.clientWidth / mainCanvas.clientHeight, 0.01, 1000);
     camera.position.set(2, 2, 2);
 
     renderer = new THREE.WebGLRenderer({antialias: true, canvas: mainCanvas});
@@ -144,7 +144,7 @@ async function loadPointCloud() {
         width: mainCanvas.clientWidth,
         height: mainCanvas.clientHeight,
         pixelRatio: window.devicePixelRatio,
-        fov: camera.fov * Math.PI / 180,
+        fov: camera.fov,
     })
 }
 
